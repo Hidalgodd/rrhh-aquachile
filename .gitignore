@@ -1,0 +1,17 @@
+# Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Secretos
+.env
+
+# Node
+node_modules/
+.vite/
+dist/
+
+# Editor
+.vscode/
+*.code-workspace
