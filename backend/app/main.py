@@ -2,9 +2,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
-from app.database import engine, Base
-from app.models import postulante  # noqa: F401
-from app.routers import postulantes
+from app.database import engine
+from app.models import empleado, postulante, usuario  # noqa: F401
+from app.routers import auth, empleados, postulantes
 
 app = FastAPI(title="RRHH AquaChile")
 
@@ -17,6 +17,8 @@ app.add_middleware(
 )
 
 app.include_router(postulantes.router)
+app.include_router(auth.router)
+app.include_router(empleados.router)
 
 
 @app.get("/health")
