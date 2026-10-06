@@ -6,6 +6,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.dependencies import require_rrhh
 from app.models.postulante import Postulante
 
 router = APIRouter(prefix="/api/postulantes", tags=["Postulantes"])
@@ -58,7 +59,7 @@ async def crear_postulante(
     return {"id_postulante": postulante.id_postulante, "mensaje": "Postulación recibida"}
 
 
-@router.get("")
+@router.get("", dependencies=[Depends(require_rrhh)])
 def listar_postulantes(db: Session = Depends(get_db)):
     postulantes = db.query(Postulante).order_by(Postulante.fecha_postulacion.desc()).all()
     return [
@@ -74,7 +75,7 @@ def listar_postulantes(db: Session = Depends(get_db)):
     ]
 
 
-@router.get("/{id_postulante}/cv")
+@router.get("/{id_postulante}/cv", dependencies=[Depends(require_rrhh)])
 def descargar_cv(id_postulante: int, db: Session = Depends(get_db)):
     p = db.get(Postulante, id_postulante)
     if not p:
