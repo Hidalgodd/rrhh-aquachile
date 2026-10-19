@@ -1,8 +1,10 @@
-﻿import uuid
+import uuid
 from pathlib import Path
+from typing import Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -67,6 +69,7 @@ def listar_postulantes(db: Session = Depends(get_db)):
             "id_postulante": p.id_postulante,
             "nombre": f"{p.nombres} {p.apellidos}",
             "correo": p.correo,
+            "telefono": p.telefono,
             "cargo_postulado": p.cargo_postulado,
             "estado": p.estado,
             "fecha_postulacion": p.fecha_postulacion,
@@ -84,3 +87,21 @@ def descargar_cv(id_postulante: int, db: Session = Depends(get_db)):
     if not ruta.exists():
         raise HTTPException(404, "El archivo del CV no existe")
     return FileResponse(ruta, filename=p.cv_nombre_original)
+
+
+class EstadoPostulante(BaseModel):
+    estado: Literal["recibido", "en revisión", "entrevista", "contratado", "rechazado"]
+
+
+@router.patch("/{id_postulante}/estado", dependencies=[Depends(require_rrhh)])
+def cambiar_estado(
+    id_postulante: int,
+    datos: EstadoPostulante,
+    db: Session = Depends(get_db),
+):
+    p = db.get(Postulante, id_postulante)
+    if not p:
+        raise HTTPException(404, "Postulante no encontrado")
+    p.estado = datos.estado
+    db.commit()
+    return {"id_postulante": p.id_postulante, "estado": p.estado}

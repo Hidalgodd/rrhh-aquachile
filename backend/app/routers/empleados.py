@@ -7,7 +7,9 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import require_rrhh
 from app.models.empleado import Area, Cargo, Empleado
+from app.models.rrhh import Centro, Turno
 from app.models.usuario import Usuario
+from app.tiempo import hoy
 from app.schemas.empleado import (
     AreaCreate,
     AreaRead,
@@ -90,11 +92,18 @@ def crear_cargo(datos: CargoCreate, db: DbSession):
     }
 
 
-def _empleado_a_respuesta(
-    empleado: Empleado,
-    cargo_nombre: str,
-    area_nombre: str,
-) -> EmpleadoRead:
+def _consulta(db: Session):
+    return (
+        db.query(Empleado, Cargo, Area, Turno, Centro)
+        .join(Cargo, Empleado.id_cargo == Cargo.id_cargo)
+        .join(Area, Cargo.id_area == Area.id_area)
+        .outerjoin(Turno, Empleado.id_turno == Turno.id_turno)
+        .outerjoin(Centro, Turno.id_centro == Centro.id_centro)
+    )
+
+
+def _respuesta(fila) -> EmpleadoRead:
+    empleado, cargo, area, turno, centro = fila
     return EmpleadoRead(
         id_empleado=empleado.id_empleado,
         rut=empleado.rut,
@@ -107,9 +116,22 @@ def _empleado_a_respuesta(
         fecha_ingreso=empleado.fecha_ingreso,
         estado=empleado.estado,
         id_cargo=empleado.id_cargo,
-        cargo=cargo_nombre,
-        area=area_nombre,
+        cargo=cargo.nombre,
+        id_area=area.id_area,
+        area=area.nombre,
+        id_turno=empleado.id_turno,
+        centro=centro.nombre if centro else None,
+        grupo=turno.grupo if turno else None,
+        regimen=turno.regimen if turno else None,
+        fecha_salida=empleado.fecha_salida,
     )
+
+
+def _obtener_empleado_con_detalle(db: Session, empleado: Empleado) -> EmpleadoRead:
+    fila = _consulta(db).filter(Empleado.id_empleado == empleado.id_empleado).first()
+    if fila is None:
+        raise HTTPException(status_code=409, detail="El cargo o área asociado ya no existe")
+    return _respuesta(fila)
 
 
 @router.get("/empleados", response_model=list[EmpleadoRead])
@@ -118,13 +140,9 @@ def listar_empleados(
     q: Annotated[str | None, Query(max_length=100)] = None,
     estado: Annotated[str | None, Query(pattern="^(activo|inactivo|licencia)$")] = None,
     skip: Annotated[int, Query(ge=0)] = 0,
-    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    limit: Annotated[int, Query(ge=1, le=500)] = 50,
 ):
-    query = (
-        db.query(Empleado, Cargo.nombre, Area.nombre)
-        .join(Cargo, Empleado.id_cargo == Cargo.id_cargo)
-        .join(Area, Cargo.id_area == Area.id_area)
-    )
+    query = _consulta(db)
     if q:
         term = f"%{q.strip()}%"
         query = query.filter(
@@ -135,16 +153,13 @@ def listar_empleados(
         )
     if estado:
         query = query.filter(Empleado.estado == estado)
-    rows = (
+    filas = (
         query.order_by(Empleado.apellidos, Empleado.nombres)
         .offset(skip)
         .limit(limit)
         .all()
     )
-    return [
-        _empleado_a_respuesta(empleado, cargo_nombre, area_nombre)
-        for empleado, cargo_nombre, area_nombre in rows
-    ]
+    return [_respuesta(f) for f in filas]
 
 
 @router.post(
@@ -157,6 +172,8 @@ def crear_empleado(datos: EmpleadoCreate, db: DbSession):
         raise HTTPException(status_code=404, detail="Cargo no encontrado")
 
     empleado = Empleado(**datos.model_dump())
+    if empleado.estado == "inactivo":
+        empleado.fecha_salida = hoy()
     db.add(empleado)
     try:
         db.commit()
@@ -178,18 +195,6 @@ def obtener_empleado(id_empleado: int, db: DbSession):
     return _obtener_empleado_con_detalle(db, empleado)
 
 
-def _obtener_empleado_con_detalle(db: Session, empleado: Empleado) -> EmpleadoRead:
-    row = (
-        db.query(Cargo.nombre, Area.nombre)
-        .join(Area, Cargo.id_area == Area.id_area)
-        .filter(Cargo.id_cargo == empleado.id_cargo)
-        .first()
-    )
-    if row is None:
-        raise HTTPException(status_code=409, detail="El cargo o área asociado ya no existe")
-    return _empleado_a_respuesta(empleado, row[0], row[1])
-
-
 @router.patch("/empleados/{id_empleado}", response_model=EmpleadoRead)
 def actualizar_empleado(
     id_empleado: int,
@@ -209,9 +214,12 @@ def actualizar_empleado(
     for campo, valor in cambios.items():
         setattr(empleado, campo, valor)
     if cambios.get("estado") == "inactivo":
+        empleado.fecha_salida = empleado.fecha_salida or hoy()
         usuario = db.query(Usuario).filter(Usuario.id_empleado == id_empleado).first()
         if usuario is not None:
             usuario.activo = False
+    elif cambios.get("estado") in {"activo", "licencia"}:
+        empleado.fecha_salida = None
     try:
         db.commit()
     except IntegrityError as exc:
