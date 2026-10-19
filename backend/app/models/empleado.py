@@ -51,3 +51,7 @@ class Empleado(Base):
     )
     id_cargo: Mapped[int] = mapped_column(ForeignKey("cargos.id_cargo"), nullable=False)
     estado: Mapped[str] = mapped_column(String(20), nullable=False, default="activo")
+    id_turno: Mapped[int | None] = mapped_column(
+        ForeignKey("turnos.id_turno", ondelete="SET NULL"), nullable=True
+    )
+    fecha_salida: Mapped[date | None] = mapped_column(Date, nullable=True)

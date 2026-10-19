@@ -5,6 +5,8 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.dependencies import get_current_user
+from app.models.empleado import Empleado
 from app.models.usuario import Usuario
 from app.security import create_access_token, verify_password
 
@@ -32,4 +34,21 @@ def iniciar_sesion(
     return {
         "access_token": create_access_token(usuario.username),
         "token_type": "bearer",
+    }
+
+
+@router.get("/me")
+def quien_soy(
+    usuario: Annotated[Usuario, Depends(get_current_user)],
+    db: Session = Depends(get_db),
+):
+    empleado = db.get(Empleado, usuario.id_empleado)
+    return {
+        "id_usuario": usuario.id_usuario,
+        "username": usuario.username,
+        "rol": usuario.rol,
+        "id_empleado": usuario.id_empleado,
+        "nombre": (
+            f"{empleado.nombres} {empleado.apellidos}" if empleado else usuario.username
+        ),
     }

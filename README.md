@@ -74,6 +74,61 @@ Proyecto académico de Ingeniería Informática (4° semestre). Sistema web de R
 - Al marcar como inactivo a un empleado con cuenta asociada, su usuario de acceso también se desactiva.
 - Se añadió `app/bootstrap_admin.py` para inicializar de forma local la primera área, cargo, empleado y cuenta administradora cuando la base está vacía. Se agregaron pruebas de flujos y validaciones; pendientes de ejecución al instalar Python.
 
+### Avances (15-10-2026)
+
+**Backend**
+
+- `GET /api/auth/me`: devuelve nombre, usuario y rol de la sesión (lo usa el login del frontend).
+- `GET /api/dashboard/resumen`: empleados activos, en licencia, ingresos del mes, postulaciones por revisar y dotación por área (solo `rrhh` y `admin`).
+- `PATCH /api/postulantes/{id}/estado`: cambia el estado de una postulación.
+- `.env.example` ahora incluye `SECRET_KEY`.
+- Pruebas nuevas en `tests/test_me_dashboard.py` (13 pruebas en total).
+
+**Frontend de la etapa del 15-10-2026**
+
+- Login real contra `POST /api/auth/token` con manejo de errores y cierre de sesión automático cuando el token vence.
+- Layout con menú lateral que cambia según el rol, y rutas protegidas.
+- Panel con datos reales: cifras clave y dotación por área.
+- Empleados: listado con búsqueda, filtro por estado y paginación; formulario para crear y editar (área y cargo dependientes).
+- Postulantes: listado, cambio de estado y descarga de CV con sesión.
+- `/postular`: formulario público para enviar CV (PDF, DOC o DOCX, máximo 5 MB).
+
+**Pendiente en esa etapa:** pantalla para crear áreas y cargos (hoy se hace desde `/docs`), módulo de permisos y vacaciones, asistencia y contratos. Los módulos de permisos, asistencia y contratos se conectaron después con la iteración del backend descrita a continuación.
+
+### Avances (16-10-2026)
+
+**Base de datos**
+
+- Migración `0004_turnos_permisos`: tablas `centros`, `turnos`, `documentos`; columnas nuevas en `empleados` (`id_turno`, `fecha_salida`), `contratos` (`titulo`, `renovacion`) y `permisos` (`dias`, `fecha_solicitud`, `comentario_respuesta`, `id_resuelto_por`, `fecha_respuesta`). Sirve para una base nueva y para una creada con el script SQL antiguo (`alembic stamp 0003_usuarios` y luego `alembic upgrade head`).
+
+**Backend**
+
+- Turnos 7x7 y 14x14 calculados desde una fecha ancla por grupo: `GET /api/centros`, `/api/turnos/grilla`, `/api/turnos/resumen`, `POST /api/turnos/asignar`.
+- Permisos y vacaciones: `GET /api/permisos/calculo` (vista previa con días hábiles, saldo y cruce con el turno), `POST /api/permisos`, `GET /api/permisos/mios`, bandeja de aprobaciones (`GET /api/permisos?estado=`), `GET /api/permisos/{id}/impacto`, `PATCH /api/permisos/{id}/resolver`. Cupo de 15 días hábiles al año; los feriados están en `app/services/calendario.py` (revisar cada diciembre).
+- Contratos: vigente, historial, crear, renovar y dejar vencer.
+- Documentos: subir, firmar y descargar. Certificado de antigüedad en PDF.
+- Asistencia: marcar entrada/salida y consultar por mes.
+- Panel: dotación, comparación con hace un año y serie mensual por área.
+- `python -m app.seed_demo --reset` carga datos de demostración con las cifras del prototipo (solo desarrollo).
+- 33 pruebas (`pytest`).
+
+**Frontend implementado**
+
+- Inicio de sesión integrado con la API y navegación por rol.
+- React Router con URLs directas para panel, empleados/ficha, postulantes, aprobaciones, turnos, espacio colaborador y `/postular`.
+- Panel, personas y ficha del empleado (contratos, documentos, asistencia y vacaciones).
+- Bandeja de aprobaciones con impacto de ausencias, turnos por centro/grupo y gestión de postulantes.
+- Portal del colaborador para solicitar permisos, marcar asistencia, firmar/descargar documentos y obtener certificados.
+- Página pública `/postular` con acceso al portal externo de ofertas y un resumen de las etapas de selección; formulario de currículum conectado a la API.
+- La URL de la API se puede ajustar con `VITE_API_URL`; por defecto es `http://localhost:8000`.
+
+### Avances (19-10-2026)
+
+- Se completó la separación de las vistas en `frontend/src/pages/` y se configuró React Router para las rutas del sistema.
+- Se agregó el seed `python -m app.seed_demo` para una base de desarrollo vacía: genera dotación, turnos, permisos, asistencia, contratos, documentos y postulantes ficticios. Solicita una contraseña para las cuentas de demo; no reemplaza una base que ya tenga empleados.
+- Se ajustaron detalles de presentación y responsividad en el panel, personas, aprobaciones y turnos; también se corrigieron etiquetas singulares/plurales y el alineamiento de las fechas de los turnos.
+- Validaciones del frontend: `npm run build` y `npm audit`.
+
 ## Estructura
 
 ```
@@ -105,9 +160,26 @@ rrhh-aquachile/
 ├── database/
 │   └── rrhh_aquachile.sql
 ├── frontend/
+│   ├── package.json
+│   ├── vite.config.js
 │   └── src/
-│       ├── FormularioPostulacion.jsx
-│       └── FormularioPostulacion.css
+│       ├── App.jsx
+│       ├── api.js
+│       ├── styles.css
+│       ├── components/
+│       │   └── ui.jsx
+│       ├── lib/
+│       │   └── helpers.js
+│       └── pages/
+│           ├── Login.jsx
+│           ├── Postular.jsx
+│           ├── Dashboard.jsx
+│           ├── Employees.jsx
+│           ├── EmployeeProfile.jsx
+│           ├── Applicants.jsx
+│           ├── Approvals.jsx
+│           ├── Shifts.jsx
+│           └── Portal.jsx
 └── .gitignore
 ```
 
@@ -153,7 +225,7 @@ La API entrega tokens en `POST /api/auth/token` (OAuth2 password form). La lista
 python -m app.create_user --employee-id 1 --username admin --role admin
 ```
 
-En una base nueva creada con Alembic, primero inicializa los datos y la cuenta de administración con `python -m app.bootstrap_admin`; el comando solicita los datos y contraseñas interactivamente. Para bases donde el empleado ya existe, usa `app.create_user` como en el ejemplo anterior. Para agregar cuentas `rrhh` o `empleado`, ejecuta `app.create_user` con el rol correspondiente. No existe una ruta pública de registro.
+En una base nueva creada con Alembic, primero inicializa los datos y la cuenta de administración con `python -m app.bootstrap_admin`; el comando solicita los datos y contraseñas interactivamente (la contraseña debe tener al menos 12 caracteres). Para bases donde el empleado ya existe, usa `app.create_user` como en el ejemplo anterior. Para agregar cuentas `rrhh` o `empleado`, ejecuta `app.create_user` con el rol correspondiente. No existe una ruta pública de registro.
 
 Las rutas de gestión son `GET/POST /api/areas`, `GET/POST /api/cargos` y `GET/POST /api/empleados`, además de `GET/PATCH /api/empleados/{id}`. Todas requieren un token de usuario `rrhh` o `admin`.
 
@@ -168,5 +240,7 @@ cd frontend
 npm install
 npm run dev
 ```
+
+En Windows, si PowerShell bloquea `npm`, usa `npm.cmd` o ejecuta `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned`. Si el puerto 5432 está ocupado por otro Postgres, publica el contenedor en otro puerto (`-p 5433:5432`) y ajusta `DATABASE_URL`.
 
 Aplicación en `http://localhost:5173`.

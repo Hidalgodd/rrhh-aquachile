@@ -152,4 +152,10 @@ class EmpleadoRead(BaseModel):
     estado: str
     id_cargo: int
     cargo: str
+    id_area: int
     area: str
+    id_turno: int | None = None
+    centro: str | None = None
+    grupo: str | None = None
+    regimen: str | None = None
+    fecha_salida: date | None = None
