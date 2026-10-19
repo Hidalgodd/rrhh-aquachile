@@ -138,7 +138,7 @@ h3 { margin: 22px 0 8px; font-size: 17px; }
 .bar-color-0 { background: var(--coral); }.bar-color-1 { background: #e56c24; }.bar-color-2 { background: #ffb29f; }.bar-color-3 { background: #a3b6c1; }.bar-color-4 { background: #f7d3c9; }
 .chart-months { display: flex; justify-content: space-between; padding-top: 8px; color: #9fb1bd; font-size: 9px; }
 .dashboard-note { position: relative; z-index: 1; margin: 28px 0 0; color: #fff; font-size: 17px; }
-.dashboard-note a { color: #ffb19f; font-weight: 800; text-decoration: underline; cursor: pointer; }
+.dashboard-link { border: 0; padding: 0; color: #ffb19f; background: none; font: inherit; font-weight: 800; text-decoration: underline; }
 .schedule-card { position: relative; margin: -2px -4.6% 0; border: 1px solid #e2e8eb; border-radius: 30px 30px 0 0; padding: 28px 4.4% 38px; background: #fff; }
 .section-title-row { display: flex; align-items: baseline; justify-content: space-between; }
 .schedule-days, .schedule-row { display: grid; grid-template-columns: minmax(150px, 1.1fr) 5fr; gap: 15px; align-items: center; }

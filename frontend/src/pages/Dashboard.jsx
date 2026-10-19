@@ -33,7 +33,7 @@ export default function Dashboard({ navigate, notify }) {
           </div>
           <div className="chart-months">{chartPoints.map((point, index) => <span key={`${point.month}-${index}`}>{point.month}</span>)}</div>
         </div>
-        <p className="dashboard-note"><b>{summary.licencia} personas</b> están con licencia, <b>{summary.nuevos_mes} ingresaron este mes</b> y <a onClick={() => navigate("/postulantes")}>{summary.postulantes_pendientes} postulaciones</a> esperan respuesta.</p>
+        <p className="dashboard-note"><b>{summary.licencia} personas</b> están con licencia, <b>{summary.nuevos_mes} ingresaron este mes</b> y <button type="button" className="dashboard-link" onClick={() => navigate("/postulantes")}>{summary.postulantes_pendientes} postulaciones</button> esperan respuesta.</p>
       </section>
       <section className="schedule-card">
         <div className="section-title-row"><h2>Turnos 7x7, próximas dos semanas</h2><button className="text-button" onClick={() => navigate("/turnos")}>Ver turnos</button></div>
